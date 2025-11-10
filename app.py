@@ -101,11 +101,11 @@ col_left, col_center, col_right = st.columns([1, 2, 1])
 
 # ---------------- LEFT: VIVA SETUP ----------------
 with col_left:
-    st.markdown("### 🎓 Viva Setup", unsafe_allow_html=True)
+    st.markdown("### Viva Setup", unsafe_allow_html=True)
 
     # Student details
-    st.session_state.student_name = st.text_input("👤 Student Name", value=st.session_state.student_name)
-    st.session_state.student_id = st.text_input("🆔 Student ID", value=st.session_state.student_id)
+    st.session_state.student_name = st.text_input("Student Name", value=st.session_state.student_name)
+    st.session_state.student_id = st.text_input("Student ID", value=st.session_state.student_id)
 
     # Subjects mapping to JSON files
     subjects = {
@@ -114,12 +114,12 @@ with col_left:
         "Computer Networks": "cn.json",
         "Data Structures": "dsa.json",
     }
-    subject_choice = st.selectbox("📘 Choose Subject", list(subjects.keys()))
-    num_questions = st.slider("🔢 Number of Questions", 1, 10, 5)
+    subject_choice = st.selectbox("Choose Subject", list(subjects.keys()))
+    num_questions = st.slider("Number of Questions", 1, 10, 5)
 
     # Feature toggles
-    enable_camera = st.checkbox("📷 Enable Camera Monitoring (Disabled - Future)", value=False)
-    enable_anti_cheat = st.checkbox("🛡️ Enable Anti-Cheat (Tab Restriction)", value=False)
+    enable_camera = st.checkbox("Enable Camera Monitoring (Disabled - Future)", value=False, disabled=True)
+    enable_anti_cheat = st.checkbox("Enable Anti-Cheat (Disabled - Future)", value=False, disabled=True)
 
     # Inject anti-cheat JS if enabled
     if enable_anti_cheat:
@@ -207,11 +207,9 @@ with col_center:
 
     # Stage-specific UI
     if st.session_state.stage == "setup":
-        st.markdown("### 🌀 Ready to Start")
+        st.markdown("### Ready to Start")
         st.markdown(
             "<p class='status-note'>"
-            "<span class='status-icon'>✨</span>"
-            "The interactive 3D orb will guide you through the viva.<br>"
             "Click <b>Start Viva</b> when ready."
             "</p>", 
             unsafe_allow_html=True
@@ -266,7 +264,6 @@ with col_center:
         else:
             st.markdown(
                 "<p class='status-note'>"
-                "<span class='status-icon'>⏳</span>"
                 "Processing..."
                 "</p>", 
                 unsafe_allow_html=True
@@ -281,7 +278,7 @@ with col_center:
     elif st.session_state.stage == "report":
         report = st.session_state.report
         if report:
-            st.markdown("<h3 style='color:#00FFFF;'>📊 Viva Report Card</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#00FFFF;'>Viva Report Card</h3>", unsafe_allow_html=True)
             st.markdown(f"**Student:** {report.get('user', '')}  |  **ID:** {report.get('student_id', '')}  |  **Subject:** {report.get('subject', '')}")
             st.markdown(f"**Average Score:** `{report.get('average_score', 0)}%`")
 
@@ -307,7 +304,7 @@ with col_center:
                 mime="application/json",
             )
 
-            if st.button("🔁 Start New Session"):
+            if st.button("Start New Session"):
                 st.session_state.stage = "setup"
                 st.session_state.selected = []
                 st.session_state.logs = []
@@ -322,7 +319,7 @@ with col_center:
 
 # ---------------- RIGHT: SESSION LOG ----------------
 with col_right:
-    st.markdown("### 🧾 Session Log")
+    st.markdown("### Session Log")
     
     if st.session_state.stage == "viva" and st.session_state.current_question:
         st.markdown(
