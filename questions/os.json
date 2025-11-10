@@ -1,0 +1,9 @@
+{
+  "What is a process in an operating system?": "A process is a program in execution that has its own memory, CPU time, and system resources.",
+  "What is the difference between a process and a thread?": "A process is an independent program with its own memory space, while a thread is a lightweight unit of execution within a process that shares memory.",
+  "Explain process scheduling.": "Process scheduling is the method by which the OS decides which process runs next on the CPU using algorithms like FCFS, SJF, and Round Robin.",
+  "What is a deadlock?": "A deadlock occurs when two or more processes are waiting for each other’s resources and none of them can proceed.",
+  "What is virtual memory?": "Virtual memory allows the OS to use part of the hard drive as RAM to extend physical memory, enabling larger programs to run.",
+  "What is a system call?": "A system call is a way for user-level programs to request services or resources from the kernel.",
+  "What is the purpose of the scheduler?": "The scheduler selects processes for execution to ensure CPU utilization and fairness."
+}

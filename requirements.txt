@@ -1,0 +1,21 @@
+# Core Framework
+streamlit
+
+# Speech Recognition & Audio
+SpeechRecognition
+pyttsx3
+pyaudio
+
+# NLP and Similarity
+spacy
+textdistance
+
+# Computer Vision (optional camera)
+opencv-python
+
+# Audio Analysis (optional confidence detection)
+librosa
+
+# Utilities
+numpy
+pandas

@@ -1,0 +1,52 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "question": "What is a database management system (DBMS)?",
+      "answer": "A DBMS is software that stores, retrieves and manages data in databases. It provides an interface for users and applications to create, read, update, and delete data while ensuring integrity and security.",
+      "topic": "Introduction"
+    },
+    {
+      "id": 2,
+      "question": "Explain the ACID properties of transactions.",
+      "answer": "ACID stands for Atomicity, Consistency, Isolation, and Durability. Atomicity ensures all parts of a transaction succeed or none do. Consistency keeps data valid before and after a transaction. Isolation makes concurrent transactions appear sequential. Durability ensures committed changes persist even after crashes.",
+      "topic": "Transactions"
+    },
+    {
+      "id": 3,
+      "question": "What is normalization and why is it important?",
+      "answer": "Normalization is the process of organizing tables to reduce redundancy and dependency by splitting data into related tables. It improves data integrity and simplifies updates. Common forms include 1NF, 2NF, and 3NF.",
+      "topic": "Database Design"
+    },
+    {
+      "id": 4,
+      "question": "Describe the difference between primary key and foreign key.",
+      "answer": "A primary key uniquely identifies a row within a table. A foreign key is a column (or set of columns) that creates a link between data in two tables by referring to the primary key of another table.",
+      "topic": "Keys & Constraints"
+    },
+    {
+      "id": 5,
+      "question": "What are joins in SQL and name common types.",
+      "answer": "Joins combine rows from two or more tables based on related columns. Common types are INNER JOIN (matches rows present in both tables), LEFT JOIN (all rows from left table plus matches), RIGHT JOIN, and FULL OUTER JOIN.",
+      "topic": "SQL"
+    },
+    {
+      "id": 6,
+      "question": "What is an index and how does it help performance?",
+      "answer": "An index is a data structure (like a B-tree) that improves the speed of data retrieval on a table column. It allows quicker search and ordering but adds overhead on insert/update operations.",
+      "topic": "Storage & Indexing"
+    },
+    {
+      "id": 7,
+      "question": "Explain concurrency control briefly.",
+      "answer": "Concurrency control manages simultaneous operations on the database to prevent conflicts and ensure isolation. Techniques include locking, timestamp ordering, and optimistic concurrency control.",
+      "topic": "Transactions"
+    },
+    {
+      "id": 8,
+      "question": "What is denormalization and when would you use it?",
+      "answer": "Denormalization is deliberately adding redundancy to a database design to improve read performance. It is used when query speed is more critical than strict normalization, for example in reporting or read-heavy systems.",
+      "topic": "Database Design"
+    }
+  ]
+}

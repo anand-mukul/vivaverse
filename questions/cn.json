@@ -1,0 +1,7 @@
+{
+  "What is computer networking?": "Computer networking is the practice of connecting computers and other devices together to share resources and data.",
+  "What is the difference between TCP and UDP?": "TCP is connection-oriented and reliable, while UDP is connectionless and faster but less reliable.",
+  "Explain the OSI model.": "The OSI model has seven layers — physical, data link, network, transport, session, presentation, and application — which standardize network communication.",
+  "What is an IP address?": "An IP address is a unique numerical identifier assigned to each device on a network for communication.",
+  "What is DNS?": "DNS stands for Domain Name System, which translates human-readable domain names into IP addresses."
+}

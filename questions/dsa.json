@@ -1,0 +1,52 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "question": "What is an array and how is it different from a linked list?",
+      "answer": "An array is a contiguous block of memory storing elements of the same type with O(1) access by index. A linked list stores elements in nodes with pointers, allowing efficient inserts/deletes but slower indexed access (O(n)).",
+      "topic": "Linear DS"
+    },
+    {
+      "id": 2,
+      "question": "Explain the difference between stack and queue with examples.",
+      "answer": "A stack is LIFO (last-in, first-out) used for function calls and undo operations. A queue is FIFO (first-in, first-out) used in scheduling and breadth-first search. Operations: push/pop for stack, enqueue/dequeue for queue.",
+      "topic": "Linear DS"
+    },
+    {
+      "id": 3,
+      "question": "What is a binary tree and how does it differ from a binary search tree (BST)?",
+      "answer": "A binary tree is a tree where each node has at most two children. A BST is a binary tree with the property that the left child subtree contains smaller values and the right subtree contains larger values, enabling efficient search.",
+      "topic": "Trees"
+    },
+    {
+      "id": 4,
+      "question": "Describe in simple words what a hash table is and one common collision resolution method.",
+      "answer": "A hash table maps keys to values using a hash function to compute an index. Collisions occur when multiple keys map to the same index. One common resolution is chaining, where each bucket holds a linked list of entries.",
+      "topic": "Hashing"
+    },
+    {
+      "id": 5,
+      "question": "What is BFS and DFS? Give a use-case for each.",
+      "answer": "BFS (Breadth-First Search) visits nodes level by level and is used for finding shortest paths in unweighted graphs. DFS (Depth-First Search) explores as deep as possible along a branch and is used for detecting cycles and topological sorting.",
+      "topic": "Graphs & Traversals"
+    },
+    {
+      "id": 6,
+      "question": "Explain time complexity of inserting and searching in a balanced binary search tree (like AVL or Red-Black).",
+      "answer": "In a balanced BST like AVL or Red-Black, both search and insert have O(log n) time complexity because the tree height is kept proportional to log n by rebalancing after operations.",
+      "topic": "Trees"
+    },
+    {
+      "id": 7,
+      "question": "What is dynamic programming in simple terms and when should it be used?",
+      "answer": "Dynamic programming is a technique to solve problems by breaking them into overlapping subproblems, solving each once, and storing results (memoization or tabulation). Use it when a problem has optimal substructure and overlapping subproblems, like Fibonacci or knapsack.",
+      "topic": "Algorithms"
+    },
+    {
+      "id": 8,
+      "question": "Give a brief explanation of greedy algorithms and an example problem solved by greedy approach.",
+      "answer": "Greedy algorithms make the best local choice at each step with the hope of finding a global optimum. An example is the activity selection problem where selecting the earliest finishing activity leads to an optimal schedule.",
+      "topic": "Algorithms"
+    }
+  ]
+}
