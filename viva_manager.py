@@ -83,7 +83,7 @@ def run_viva_session_stepwise():
             # Move to speaking phase
             st.session_state.question_phase = "speaking"
             st.session_state.orb_status = "preparing"
-            update_orb_color("#0088FF")
+            update_orb_color("#00FFFF")
             
             # Speak question ONCE
             speak_async(f"Question {q_index + 1}. {question}")
@@ -138,7 +138,7 @@ def run_viva_session_stepwise():
             
             # Record answer
             try:
-                result = record_answer(duration=8, get_volume=True)
+                result = record_answer(duration=10, get_volume=True)
                 if isinstance(result, tuple) and len(result) == 2:
                     user_answer, avg_volume = result
                 else:

@@ -216,14 +216,13 @@ with col_center:
         )
 
     elif st.session_state.stage == "viva":
-        st.markdown("### 🎤 Viva In Progress")
+        st.markdown("### Viva In Progress")
         
         status = st.session_state.orb_status
         
         if status == "preparing":
             st.markdown(
                 "<p class='status-note'>"
-                "<span class='status-icon'>🔊</span>"
                 "<b>Preparing question...</b><br>"
                 "Listen carefully to the question being asked."
                 "</p>", 
@@ -236,7 +235,6 @@ with col_center:
                 st.markdown(f"<div class='countdown'>{countdown}</div>", unsafe_allow_html=True)
                 st.markdown(
                     "<p class='status-note'>"
-                    "<span class='status-icon'>💭</span>"
                     "<b>Think about your answer...</b><br>"
                     "Recording will start automatically."
                     "</p>", 
@@ -245,7 +243,6 @@ with col_center:
             else:
                 st.markdown(
                     "<p class='status-note'>"
-                    "<span class='status-icon'>💭</span>"
                     "<b>Thinking time...</b>"
                     "</p>", 
                     unsafe_allow_html=True
@@ -254,7 +251,6 @@ with col_center:
         elif status == "listening":
             st.markdown(
                 "<p class='status-note'>"
-                "<span class='status-icon'>🎤</span>"
                 "<b>Recording now - Speak your answer!</b><br>"
                 "You have up to 8 seconds to respond."
                 "</p>", 
