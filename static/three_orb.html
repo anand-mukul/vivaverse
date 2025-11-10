@@ -1,4 +1,4 @@
-<!-- static/three_orb.html -->
+<!-- static/three_orb.html - Enhanced Perplexity Voice Assistant Style with Sound Reactivity -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,20 +10,23 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: radial-gradient(circle at center, #030b16 30%, #000 100%);
+    background: transparent;
     height: 100%;
   }
   #container {
     width: 100%;
     height: 100%;
     position: relative;
+    cursor: grab;
+  }
+  #container:active {
+    cursor: grabbing;
   }
   canvas {
     display: block;
     width: 100%;
     height: 100%;
   }
-  /* Fade overlay used when hiding orb */
   #orb-overlay {
     position: absolute;
     inset: 0;
@@ -42,179 +45,557 @@
 <div id="container"></div>
 <div id="orb-overlay"></div>
 
-<!-- Three.js CDN (r152) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <script>
 (() => {
-  // Scene / renderer / camera
   const container = document.getElementById('container');
   const overlay = document.getElementById('orb-overlay');
 
   const scene = new THREE.Scene();
   const w = container.clientWidth;
-  const h = 400; // keep consistent height as embedded in Streamlit
+  const h = 400;
   const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 1000);
-  camera.position.z = 4;
+  camera.position.z = 6.5;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   renderer.setSize(w, h);
   container.appendChild(renderer.domElement);
 
-  // Orb core
-  const coreGeo = new THREE.SphereGeometry(1.5, 64, 64);
-  const coreColor = new THREE.Color('#00FFFF');
-  const coreMat = new THREE.MeshPhysicalMaterial({
-    color: coreColor,
-    emissive: coreColor,
-    emissiveIntensity: 0.7,
-    roughness: 0.2,
-    metalness: 0.1,
-    clearcoat: 0.6,
-    clearcoatRoughness: 0.1,
-    reflectivity: 0.7,
-    transparent: false,
-  });
-  const core = new THREE.Mesh(coreGeo, coreMat);
-  scene.add(core);
+  // Mouse tracking
+  const mouse = new THREE.Vector2();
+  const raycaster = new THREE.Raycaster();
+  let mouseDown = false;
+  let dragVelocity = new THREE.Vector2(0, 0);
+  let autoRotation = 0;
 
-  // Soft aura (larger transparent sphere)
-  const auraGeo = new THREE.SphereGeometry(1.8, 64, 64);
-  const auraMat = new THREE.MeshBasicMaterial({
-    color: coreColor,
+  // Sound reactivity
+  let audioLevel = 0;
+  let targetAudioLevel = 0;
+  let audioScale = 1.0;
+  let audioIntensity = 0;
+
+  // Core sphere (highest density, smallest)
+  const coreParticleCount = 400;
+  const coreRadius = 0.8;
+  const coreParticles = [];
+  
+  // Inner sphere (medium density)
+  const innerParticleCount = 300;
+  const innerRadius = 1.5;
+  const innerParticles = [];
+  
+  // Outer sphere (largest, most spread)
+  const outerParticleCount = 280;
+  const outerRadius = 2.3;
+  const outerParticles = [];
+  
+  class Dot {
+    constructor(radius, layer = 'outer') {
+      const phi = Math.random() * Math.PI * 2;
+      const theta = Math.acos(2 * Math.random() - 1);
+      
+      this.originalPos = new THREE.Vector3(
+        radius * Math.sin(theta) * Math.cos(phi),
+        radius * Math.sin(theta) * Math.sin(phi),
+        radius * Math.cos(theta)
+      );
+      
+      this.position = this.originalPos.clone();
+      this.velocity = new THREE.Vector3(0, 0, 0);
+      this.repulsionForce = new THREE.Vector3(0, 0, 0);
+      
+      // Size based on layer
+      if (layer === 'core') {
+        this.size = 0.05 + Math.random() * 0.03;
+      } else if (layer === 'inner') {
+        this.size = 0.08 + Math.random() * 0.04;
+      } else {
+        this.size = 0.06 + Math.random() * 0.03;
+      }
+      
+      this.baseSize = this.size;
+      
+      // Animation properties
+      this.phase = Math.random() * Math.PI * 2;
+      this.speed = 0.5 + Math.random() * 0.5;
+      this.pulsePhase = Math.random() * Math.PI * 2;
+      this.layer = layer;
+      this.hoverScale = 1.0;
+      this.audioReactivity = 0.7 + Math.random() * 0.6; // Individual reactivity
+    }
+    
+    update(time, mousePos, isInteracting, rotation, audioLevel) {
+      // Breathing wave animation - different amplitudes per layer
+      let waveAmp = 0.12;
+      if (this.layer === 'core') waveAmp = 0.08;
+      else if (this.layer === 'inner') waveAmp = 0.10;
+      
+      const wave = Math.sin(time * this.speed + this.phase) * waveAmp;
+      let baseRadius = outerRadius;
+      if (this.layer === 'core') baseRadius = coreRadius;
+      else if (this.layer === 'inner') baseRadius = innerRadius;
+      
+      // Audio reactivity - expand/contract based on sound
+      let audioExpansion = 0;
+      if (this.layer === 'core') {
+        audioExpansion = audioLevel * 0.4 * this.audioReactivity;
+      } else if (this.layer === 'inner') {
+        audioExpansion = audioLevel * 0.5 * this.audioReactivity;
+      } else {
+        audioExpansion = audioLevel * 0.6 * this.audioReactivity;
+      }
+      
+      const targetRadius = baseRadius + wave + audioExpansion;
+      
+      // Apply rotation - different speeds per layer
+      const rotatedOriginal = this.originalPos.clone();
+      let rotSpeed = rotation;
+      if (this.layer === 'core') rotSpeed *= 0.5;
+      else if (this.layer === 'inner') rotSpeed *= 0.8;
+      
+      rotatedOriginal.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotSpeed);
+      
+      const targetPos = rotatedOriginal.normalize().multiplyScalar(targetRadius);
+      
+      // Mouse interaction - layer-specific
+      if (isInteracting && mousePos) {
+        let repelRadius = 2.2;
+        let strength = 0.4;
+        
+        if (this.layer === 'core') {
+          repelRadius = 1.4;
+          strength = 0.6;
+        } else if (this.layer === 'inner') {
+          repelRadius = 1.8;
+          strength = 0.5;
+        }
+        
+        const dist = this.position.distanceTo(mousePos);
+        
+        if (dist < repelRadius) {
+          const force = (1 - dist / repelRadius);
+          this.repulsionForce.copy(this.position).sub(mousePos).normalize().multiplyScalar(force * strength);
+          this.hoverScale = 1.0 + force * 0.8;
+        } else {
+          this.repulsionForce.multiplyScalar(0.88);
+          this.hoverScale += (1.0 - this.hoverScale) * 0.1;
+        }
+      } else {
+        this.repulsionForce.multiplyScalar(0.92);
+        this.hoverScale += (1.0 - this.hoverScale) * 0.1;
+      }
+      
+      // Apply forces
+      this.velocity.add(this.repulsionForce);
+      this.velocity.multiplyScalar(0.9);
+      
+      // Spring back to target
+      const spring = targetPos.clone().sub(this.position).multiplyScalar(0.06);
+      this.velocity.add(spring);
+      
+      this.position.add(this.velocity);
+      
+      // Pulsing size with audio influence
+      const pulse = Math.sin(time * 2 + this.pulsePhase) * 0.15;
+      const audioPulse = audioLevel * 0.3 * this.audioReactivity;
+      this.size = this.baseSize * (1 + pulse * 0.3 + audioPulse) * this.hoverScale;
+    }
+  }
+  
+  // Create core sphere dots (highest density)
+  for (let i = 0; i < coreParticleCount; i++) {
+    coreParticles.push(new Dot(coreRadius, 'core'));
+  }
+  
+  // Create inner sphere dots
+  for (let i = 0; i < innerParticleCount; i++) {
+    innerParticles.push(new Dot(innerRadius, 'inner'));
+  }
+  
+  // Create outer sphere dots
+  for (let i = 0; i < outerParticleCount; i++) {
+    outerParticles.push(new Dot(outerRadius, 'outer'));
+  }
+  
+  // Core particle system (brightest, most dense)
+  const coreGeo = new THREE.BufferGeometry();
+  const corePositions = new Float32Array(coreParticleCount * 3);
+  const coreSizes = new Float32Array(coreParticleCount);
+  
+  coreGeo.setAttribute('position', new THREE.BufferAttribute(corePositions, 3));
+  coreGeo.setAttribute('size', new THREE.BufferAttribute(coreSizes, 1));
+  
+  const coreMat = new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(0x00FFFF) },
+      time: { value: 0 }
+    },
+    vertexShader: `
+      attribute float size;
+      varying float vAlpha;
+      
+      void main() {
+        vAlpha = 1.0;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * 380.0 / -mvPosition.z;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 color;
+      varying float vAlpha;
+      
+      void main() {
+        vec2 center = gl_PointCoord - vec2(0.5);
+        float dist = length(center);
+        
+        if (dist > 0.5) discard;
+        
+        float alpha = (1.0 - dist * 2.0) * vAlpha;
+        float glow = 1.0 - smoothstep(0.0, 0.5, dist);
+        
+        gl_FragColor = vec4(color, alpha * glow * 1.2);
+      }
+    `,
     transparent: true,
-    opacity: 0.18,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  
+  const coreSystem = new THREE.Points(coreGeo, coreMat);
+  scene.add(coreSystem);
+  
+  // Inner particle system
+  const innerGeo = new THREE.BufferGeometry();
+  const innerPositions = new Float32Array(innerParticleCount * 3);
+  const innerSizes = new Float32Array(innerParticleCount);
+  
+  innerGeo.setAttribute('position', new THREE.BufferAttribute(innerPositions, 3));
+  innerGeo.setAttribute('size', new THREE.BufferAttribute(innerSizes, 1));
+  
+  const innerMat = new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(0x00FFFF) },
+      time: { value: 0 }
+    },
+    vertexShader: `
+      attribute float size;
+      varying float vAlpha;
+      
+      void main() {
+        vAlpha = 1.0;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * 350.0 / -mvPosition.z;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 color;
+      varying float vAlpha;
+      
+      void main() {
+        vec2 center = gl_PointCoord - vec2(0.5);
+        float dist = length(center);
+        
+        if (dist > 0.5) discard;
+        
+        float alpha = (1.0 - dist * 2.0) * vAlpha;
+        float glow = 1.0 - smoothstep(0.0, 0.5, dist);
+        
+        gl_FragColor = vec4(color, alpha * glow);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  
+  const innerSystem = new THREE.Points(innerGeo, innerMat);
+  scene.add(innerSystem);
+  
+  // Outer particle system
+  const outerGeo = new THREE.BufferGeometry();
+  const outerPositions = new Float32Array(outerParticleCount * 3);
+  const outerSizes = new Float32Array(outerParticleCount);
+  
+  outerGeo.setAttribute('position', new THREE.BufferAttribute(outerPositions, 3));
+  outerGeo.setAttribute('size', new THREE.BufferAttribute(outerSizes, 1));
+  
+  const outerMat = new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(0x00FFFF) },
+      time: { value: 0 }
+    },
+    vertexShader: `
+      attribute float size;
+      varying float vAlpha;
+      
+      void main() {
+        vAlpha = 0.7;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * 380.0 / -mvPosition.z;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 color;
+      varying float vAlpha;
+      
+      void main() {
+        vec2 center = gl_PointCoord - vec2(0.5);
+        float dist = length(center);
+        
+        if (dist > 0.5) discard;
+        
+        float alpha = (1.0 - dist * 2.0) * vAlpha;
+        float glow = 1.0 - smoothstep(0.0, 0.5, dist);
+        
+        gl_FragColor = vec4(color, alpha * glow * 0.85);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  
+  const outerSystem = new THREE.Points(outerGeo, outerMat);
+  scene.add(outerSystem);
+  
+  // Subtle ambient glow (very soft)
+  const ambientGlowGeo = new THREE.SphereGeometry(1.2, 32, 32);
+  const ambientGlowMat = new THREE.MeshBasicMaterial({
+    color: 0x00FFFF,
+    transparent: true,
+    opacity: 0.05,
     blending: THREE.AdditiveBlending
   });
-  const aura = new THREE.Mesh(auraGeo, auraMat);
-  core.add(aura);
-
-  // Small particle cloud around orb
-  const particleCount = 120;
-  const positions = new Float32Array(particleCount * 3);
-  for (let i = 0; i < particleCount; i++) {
-    const phi = Math.acos(2 * Math.random() - 1);
-    const theta = 2 * Math.PI * Math.random();
-    const r = 2.3 + Math.random() * 0.6;
-    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-    positions[i * 3 + 2] = r * Math.cos(phi);
-  }
-  const particleGeo = new THREE.BufferGeometry();
-  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const particleMat = new THREE.PointsMaterial({
-    size: 0.03,
-    transparent: true,
-    opacity: 0.9,
-    color: coreColor
-  });
-  const particles = new THREE.Points(particleGeo, particleMat);
-  scene.add(particles);
+  const ambientGlow = new THREE.Mesh(ambientGlowGeo, ambientGlowMat);
+  // scene.add(ambientGlow);
 
   // Lighting
-  const pLight1 = new THREE.PointLight(0x00ffff, 1.2, 50);
-  pLight1.position.set(5, 5, 5);
-  scene.add(pLight1);
+  const ambientLight = new THREE.AmbientLight(0x1a2332);
+  scene.add(ambientLight);
+  
+  const pointLight1 = new THREE.PointLight(0x00FFFF, 1.2, 50);
+  pointLight1.position.set(0, 0, 0);
+  scene.add(pointLight1);
+  
+  const pointLight2 = new THREE.PointLight(0x00FFFF, 0.5, 30);
+  pointLight2.position.set(3, 3, 3);
+  scene.add(pointLight2);
 
-  const pLight2 = new THREE.PointLight(0xff33ff, 0.1, 50);
-  pLight2.position.set(-5, -5, 5);
-  scene.add(pLight2);
-
-  scene.add(new THREE.AmbientLight(0x222222));
-
-  // For smooth color transitions
-  let targetColor = new THREE.Color(coreColor);
-  let currentColor = new THREE.Color(coreColor);
-
-  // Orb visibility control
+  // Color management
+  let targetColor = new THREE.Color(0x00FFFF);
+  let currentColor = new THREE.Color(0x00FFFF);
   let visible = true;
 
-  // Animation loop
   const clock = new THREE.Clock();
+  let mouseWorldPos = null;
 
   function animate() {
     requestAnimationFrame(animate);
     const t = clock.getElapsedTime();
-
-    // Gentle rotation
-    core.rotation.x += 0.0025;
-    core.rotation.y += 0.0035;
-    aura.rotation.y += 0.001;
-
-    // Pulse aura opacity subtly
-    aura.material.opacity = 0.12 + 0.06 * Math.sin(t * 1.8);
-
-    // Particles drift slowly outward & inward
-    const positions = particleGeo.attributes.position.array;
-    for (let i = 0; i < particleCount; i++) {
-      const i3 = i * 3;
-      positions[i3] += (Math.sin(t * 0.3 + i) * 0.0005);
-      positions[i3 + 1] += (Math.cos(t * 0.25 + i) * 0.0005);
-    }
-    particleGeo.attributes.position.needsUpdate = true;
-
-    // Smooth color interpolation (lerp)
+    
+    // Smooth audio level transition
+    audioLevel += (targetAudioLevel - audioLevel) * 0.15;
+    audioIntensity = audioLevel;
+    
+    // Smooth color transition
     currentColor.lerp(targetColor, 0.08);
-    core.material.color.copy(currentColor);
-    core.material.emissive.copy(currentColor);
-    aura.material.color.copy(currentColor);
-    particleMat.color.copy(currentColor);
-
+    coreMat.uniforms.color.value.copy(currentColor);
+    innerMat.uniforms.color.value.copy(currentColor);
+    outerMat.uniforms.color.value.copy(currentColor);
+    ambientGlowMat.color.copy(currentColor);
+    pointLight1.color.copy(currentColor);
+    pointLight2.color.copy(currentColor);
+    
+    // Ambient glow subtle pulse with audio reactivity
+    const glowPulse = 1 + Math.sin(t * 1.5) * 0.08 + audioLevel * 0.15;
+    ambientGlow.scale.set(glowPulse, glowPulse, glowPulse);
+    ambientGlow.material.opacity = 0.04 + Math.sin(t * 2) * 0.02 + audioLevel * 0.08;
+    
+    // Light intensity with audio
+    pointLight1.intensity = 1.2 + audioLevel * 0.5;
+    pointLight2.intensity = 0.5 + audioLevel * 0.3;
+    
+    // Auto rotation (slows when interacting)
+    if (!mouseDown) {
+      autoRotation += 0.003 + Math.abs(dragVelocity.x) * 0.1;
+      dragVelocity.multiplyScalar(0.95);
+    }
+    
+    // Update core particles
+    const corePosArray = coreGeo.attributes.position.array;
+    const coreSizeArray = coreGeo.attributes.size.array;
+    
+    for (let i = 0; i < coreParticleCount; i++) {
+      coreParticles[i].update(t, mouseWorldPos, mouseDown, autoRotation, audioLevel);
+      
+      corePosArray[i * 3] = coreParticles[i].position.x;
+      corePosArray[i * 3 + 1] = coreParticles[i].position.y;
+      corePosArray[i * 3 + 2] = coreParticles[i].position.z;
+      coreSizeArray[i] = coreParticles[i].size;
+    }
+    
+    coreGeo.attributes.position.needsUpdate = true;
+    coreGeo.attributes.size.needsUpdate = true;
+    coreMat.uniforms.time.value = t;
+    
+    // Update inner particles
+    const innerPosArray = innerGeo.attributes.position.array;
+    const innerSizeArray = innerGeo.attributes.size.array;
+    
+    for (let i = 0; i < innerParticleCount; i++) {
+      innerParticles[i].update(t, mouseWorldPos, mouseDown, autoRotation * 0.8, audioLevel);
+      
+      innerPosArray[i * 3] = innerParticles[i].position.x;
+      innerPosArray[i * 3 + 1] = innerParticles[i].position.y;
+      innerPosArray[i * 3 + 2] = innerParticles[i].position.z;
+      innerSizeArray[i] = innerParticles[i].size;
+    }
+    
+    innerGeo.attributes.position.needsUpdate = true;
+    innerGeo.attributes.size.needsUpdate = true;
+    innerMat.uniforms.time.value = t;
+    
+    // Update outer particles
+    const outerPosArray = outerGeo.attributes.position.array;
+    const outerSizeArray = outerGeo.attributes.size.array;
+    
+    for (let i = 0; i < outerParticleCount; i++) {
+      outerParticles[i].update(t, mouseWorldPos, mouseDown, autoRotation * 0.7, audioLevel);
+      
+      outerPosArray[i * 3] = outerParticles[i].position.x;
+      outerPosArray[i * 3 + 1] = outerParticles[i].position.y;
+      outerPosArray[i * 3 + 2] = outerParticles[i].position.z;
+      outerSizeArray[i] = outerParticles[i].size;
+    }
+    
+    outerGeo.attributes.position.needsUpdate = true;
+    outerGeo.attributes.size.needsUpdate = true;
+    outerMat.uniforms.time.value = t;
+    
     renderer.render(scene, camera);
   }
   animate();
 
-  // Handle window resizing (Streamlit may embed with variable width)
+  // Mouse interaction
+  let lastMouseX = 0;
+  
+  function updateMouse(e, clientX) {
+    const rect = container.getBoundingClientRect();
+    mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    
+    const dir = raycaster.ray.direction.clone().normalize();
+    const dist = (innerRadius + outerRadius) / 2;
+    mouseWorldPos = raycaster.ray.origin.clone().add(dir.multiplyScalar(dist));
+    
+    // Track drag velocity
+    if (mouseDown) {
+      const deltaX = clientX - lastMouseX;
+      dragVelocity.x = deltaX * 0.001;
+      autoRotation += dragVelocity.x;
+    }
+    lastMouseX = clientX;
+  }
+  
+  container.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+    lastMouseX = e.clientX;
+    updateMouse(e, e.clientX);
+  });
+  
+  container.addEventListener('mousemove', (e) => {
+    if (mouseDown) {
+      updateMouse(e, e.clientX);
+    }
+  });
+  
+  container.addEventListener('mouseup', () => {
+    mouseDown = false;
+    mouseWorldPos = null;
+  });
+  
+  container.addEventListener('mouseleave', () => {
+    mouseDown = false;
+    mouseWorldPos = null;
+  });
+  
+  // Touch support
+  container.addEventListener('touchstart', (e) => {
+    mouseDown = true;
+    const touch = e.touches[0];
+    lastMouseX = touch.clientX;
+    updateMouse(touch, touch.clientX);
+    e.preventDefault();
+  });
+  
+  container.addEventListener('touchmove', (e) => {
+    if (mouseDown) {
+      const touch = e.touches[0];
+      updateMouse(touch, touch.clientX);
+    }
+    e.preventDefault();
+  });
+  
+  container.addEventListener('touchend', () => {
+    mouseDown = false;
+    mouseWorldPos = null;
+  });
+
   function onResize() {
     const rect = container.getBoundingClientRect();
     const width = rect.width;
-    const height = 400; // fixed height to match Streamlit embed height
+    const height = 400;
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
   }
   window.addEventListener('resize', onResize);
 
-  // Event listeners from Python (Streamlit) via CustomEvent
+  // Event listeners
   window.addEventListener('updateOrbColor', (e) => {
     try {
       const c = new THREE.Color(e.detail || '#00FFFF');
       targetColor.copy(c);
-      // Flash effect
-      aura.material.opacity = 0.35;
-      setTimeout(() => { aura.material.opacity = 0.18; }, 250);
     } catch (err) {
       console.warn('updateOrbColor error', err);
     }
   });
 
-  // Hide orb gracefully (fade overlay and pause animation visually)
+  // NEW: Audio level event listener
+  window.addEventListener('updateAudioLevel', (e) => {
+    try {
+      // Expected value: 0.0 to 1.0
+      const level = parseFloat(e.detail);
+      if (!isNaN(level)) {
+        targetAudioLevel = Math.max(0, Math.min(1, level));
+      }
+    } catch (err) {
+      console.warn('updateAudioLevel error', err);
+    }
+  });
+
   window.addEventListener('hideOrb', () => {
     visible = false;
-    overlay.style.background = "rgba(0,0,0,0.8)";
+    overlay.style.background = "rgba(3,11,22,0.95)";
     overlay.classList.remove('hidden');
-    // Optionally, reduce particle and core visibility
-    core.material.opacity = 0;
-    aura.material.opacity = 0;
-    particleMat.opacity = 0;
-    // After a short delay completely hide canvas (keeps DOM stable)
     setTimeout(() => {
       renderer.domElement.style.display = 'none';
     }, 500);
   });
 
-  // Show orb again if needed
   window.addEventListener('showOrb', () => {
     visible = true;
     overlay.classList.add('hidden');
     renderer.domElement.style.display = 'block';
-    core.material.opacity = 1;
-    aura.material.opacity = 0.18;
-    particleMat.opacity = 0.9;
   });
 
-  // Ensure initial sizing correct
   onResize();
 })();
 </script>

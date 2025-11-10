@@ -93,8 +93,8 @@ if "thinking_countdown" not in st.session_state:
     st.session_state.thinking_countdown = 0
 
 # ---------------- TITLE ----------------
-st.markdown("<div class='main-header'>EchoViva 2.0</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-header'>AI-Powered Viva Intelligence System — voice-first & proctor-ready</div>", unsafe_allow_html=True)
+# st.markdown("<div class='main-header'>EchoViva 2.0</div>", unsafe_allow_html=True)
+# st.markdown("<div class='sub-header'>AI-Powered Viva Intelligence System — voice-first & proctor-ready</div>", unsafe_allow_html=True)
 
 # ---------------- LAYOUT ----------------
 col_left, col_center, col_right = st.columns([1, 2, 1])
