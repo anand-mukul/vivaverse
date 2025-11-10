@@ -83,7 +83,7 @@ def run_viva_session_stepwise():
             # Move to speaking phase
             st.session_state.question_phase = "speaking"
             st.session_state.orb_status = "preparing"
-            update_orb_color("#00FFFF")
+            update_orb_color("#0D9488")
             
             # Speak question ONCE
             speak_async(f"Question {q_index + 1}. {question}")
@@ -104,7 +104,7 @@ def run_viva_session_stepwise():
                 st.session_state.question_phase = "thinking"
                 st.session_state.thinking_countdown = 5
                 st.session_state.orb_status = "thinking"
-                update_orb_color("#FFAA00")
+                update_orb_color("#EA580C")
                 st.session_state.phase_start_time = time.time()
                 st.rerun()
             else:
@@ -115,7 +115,7 @@ def run_viva_session_stepwise():
         # === PHASE 3: THINKING (5-second countdown) ===
         elif phase == "thinking":
             st.session_state.orb_status = "thinking"
-            update_orb_color("#FFAA00")
+            update_orb_color("#EA580C")
             
             countdown = st.session_state.thinking_countdown
             
@@ -212,7 +212,7 @@ def run_viva_session_stepwise():
         st.session_state.current_question = None
         st.session_state.orb_status = "idle"
         st.session_state.question_phase = "start"
-        update_orb_color("#00FFFF")
+        update_orb_color("#0D9488")
         
         time.sleep(0.6)
         st.rerun()
@@ -230,5 +230,5 @@ def volume_to_color(volume: float) -> str:
     if v < 0.03:
         return "#0011FF"  # Blue
     if v < 0.06:
-        return "#00FFFF"  # Cyan
+        return "#0D9488"  # Cyan
     return "#FF33FF"     # Pink

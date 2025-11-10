@@ -1,4 +1,4 @@
-# app.py (updated - EchoViva 2.0 with color updates & improved UX)
+# app.py (updated - EchoViva 2.0 with light mode UI)
 import streamlit as st
 import json
 import random
@@ -10,43 +10,42 @@ import streamlit.components.v1 as components
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="EchoViva 2.0 | AI Viva Assistant", page_icon="🎙️", layout="wide")
 
-# ---------------- CUSTOM CSS ----------------
+# ---------------- CUSTOM CSS (LIGHT MODE) ----------------
 st.markdown(
     """
     <style>
     body {
-        background-color: #030b16;
-        color: #e6eef6;
+        background-color: #f3f7fb;
+        color: #0f172a;
         font-family: 'Poppins', sans-serif;
     }
     .main-header {
         text-align: center;
-        color: #00FFFF;
+        color: #0f766e;
         font-size: 36px;
         font-weight: 700;
-        text-shadow: 0 0 18px rgba(0,255,255,0.12);
         margin-bottom: 6px;
     }
     .sub-header {
         text-align: center;
-        color: #9aa0a6;
+        color: #475569;
         margin-bottom: 18px;
     }
     .left-panel, .center-panel, .right-panel {
-        background: rgba(255,255,255,0.03);
+        background: #ffffff;
         border-radius: 12px;
         padding: 18px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+        box-shadow: 0 6px 20px rgba(15,23,42,0.06);
     }
     .left-panel { min-height: 78vh; }
     .center-panel { min-height: 78vh; }
     .right-panel { min-height: 78vh; overflow-y:auto; }
-    .control-label { color: #cfeff4; font-weight: 600; }
-    .result-card { background: rgba(0,255,255,0.06); padding: 18px; border-radius: 12px; }
-    .question-log { border-bottom: 1px solid rgba(255,255,255,0.03); padding: 10px 0; }
+    .control-label { color: #0f172a; font-weight: 600; }
+    .result-card { background: #ecfeff; padding: 18px; border-radius: 12px; }
+    .question-log { border-bottom: 1px solid rgba(15,23,42,0.04); padding: 10px 0; }
     .status-note { 
         text-align: center; 
-        color: #9aa0a6; 
+        color: #475569; 
         margin-top: 8px;
         font-size: 16px;
         line-height: 1.6;
@@ -59,10 +58,15 @@ st.markdown(
     .countdown {
         font-size: 48px;
         font-weight: bold;
-        color: #FFAA00;
+        color: #f97316;
         text-align: center;
         margin: 20px 0;
     }
+    /* Small adjustments for Streamlit-specific containers */
+    .stButton > button {
+        border-radius: 8px;
+    }
+    hr { border: none; border-top: 1px solid rgba(15,23,42,0.06); }
     </style>
     """,
     unsafe_allow_html=True,
@@ -88,7 +92,7 @@ if "current_question" not in st.session_state:
 if "orb_status" not in st.session_state:
     st.session_state.orb_status = "idle"
 if "orb_color" not in st.session_state:
-    st.session_state.orb_color = "#00FFFF"
+    st.session_state.orb_color = "#0D9488"
 if "thinking_countdown" not in st.session_state:
     st.session_state.thinking_countdown = 0
 
@@ -163,7 +167,7 @@ with col_left:
                 st.session_state.stage = "viva"
                 st.session_state.current_question = None
                 st.session_state.orb_status = "idle"
-                st.session_state.orb_color = "#00FFFF"
+                st.session_state.orb_color = "#0D9488"
 
                 st.rerun()
 
@@ -274,15 +278,15 @@ with col_center:
     elif st.session_state.stage == "report":
         report = st.session_state.report
         if report:
-            st.markdown("<h3 style='color:#00FFFF;'>Viva Report Card</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#0f766e;'>Viva Report Card</h3>", unsafe_allow_html=True)
             st.markdown(f"**Student:** {report.get('user', '')}  |  **ID:** {report.get('student_id', '')}  |  **Subject:** {report.get('subject', '')}")
             st.markdown(f"**Average Score:** `{report.get('average_score', 0)}%`")
 
-            st.markdown("<div class='result-card'>", unsafe_allow_html=True)
+            # st.markdown("<div class='result-card'>", unsafe_allow_html=True)
             for rec in report.get("records", []):
                 st.markdown(
                     f"""
-                    <div style='padding:8px; margin-bottom:8px; border-radius:8px; background:rgba(255,255,255,0.02)'>
+                    <div style='padding:8px; margin-bottom:8px; border-radius:8px; background:rgba(15,23,42,0.01)'>
                       <b>Q:</b> {rec.get('question','')}<br>
                       <b>Your Answer:</b> {rec.get('user_answer','')}<br>
                       <b>Score:</b> {rec.get('score',0)}%<br>
@@ -308,7 +312,7 @@ with col_center:
                 st.session_state.q_index = 0
                 st.session_state.current_question = None
                 st.session_state.orb_status = "idle"
-                st.session_state.orb_color = "#00FFFF"
+                st.session_state.orb_color = "#0D9488"
                 st.rerun()
         else:
             st.info("Report not available yet.")
@@ -320,7 +324,7 @@ with col_right:
     if st.session_state.stage == "viva" and st.session_state.current_question:
         st.markdown(
             f"**Current Question:**<br>"
-            f"<div style='padding:10px; background:rgba(0,255,255,0.1); border-radius:6px; border-left:3px solid #00FFFF'>"
+            f"<div style='padding:10px; background:rgba(15,23,42,0.02); border-radius:6px; border-left:3px solid #0f766e'>"
             f"{st.session_state.current_question}"
             f"</div>", 
             unsafe_allow_html=True
@@ -332,7 +336,7 @@ with col_right:
         if st.session_state.stage == "viva":
             st.info("Your answers will appear here as you respond to each question.")
         else:
-            st.info("Questions and answers will appear here during the viva.")
+            st.info("Questions and answers will appear here after the viva.")
     else:
         for idx, entry in enumerate(logs, start=1):
             user_ans_display = entry.get("user_answer", "") or "<i>No response</i>"
@@ -353,4 +357,4 @@ with col_right:
 
 # ---------------- FOOTER ----------------
 st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown("<div style='text-align:center; color:gray;'>© 2025 EchoViva — Built by Mukul Anand</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center; color:#6b7280;'>© 2025 EchoViva — Built by Mukul Anand</div>", unsafe_allow_html=True)
