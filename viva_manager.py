@@ -1,4 +1,4 @@
-# viva_manager.py (updated for EchoViva 2.0 — stepwise, non-blocking, no orb injection)
+# viva_manager.py (FIXED - proper state machine to prevent repeated TTS)
 import streamlit as st
 import time
 import threading
@@ -23,11 +23,15 @@ def speak_async(text: str):
     threading.Thread(target=_s, daemon=True).start()
 
 
+def update_orb_color(color: str):
+    """Send color update to the orb using component communication."""
+    st.session_state.orb_color = color
+
+
 def run_viva_session_stepwise():
     """
     Run exactly one viva step (one question) per Streamlit run.
-    Uses st.rerun() to proceed to the next question so the UI (orb + logs)
-    remain responsive and the orb is rendered only by app.py.
+    Uses a state machine to prevent repeated TTS calls and handle countdown properly.
     """
     # Initialize state items if missing
     if "q_index" not in st.session_state:
@@ -44,6 +48,12 @@ def run_viva_session_stepwise():
         st.session_state.student_name = ""
     if "student_id" not in st.session_state:
         st.session_state.student_id = ""
+    if "thinking_countdown" not in st.session_state:
+        st.session_state.thinking_countdown = 0
+    if "question_phase" not in st.session_state:
+        st.session_state.question_phase = "start"  # start, speaking, thinking, recording, done
+    if "phase_start_time" not in st.session_state:
+        st.session_state.phase_start_time = None
 
     q_index = st.session_state.q_index
     questions = st.session_state.selected
@@ -57,88 +67,127 @@ def run_viva_session_stepwise():
     # If still questions remaining -> handle the current one
     if q_index < total:
         question, correct_answer = questions[q_index]
+        phase = st.session_state.question_phase
 
-        # Set current question visible only in the right panel
-        st.session_state.current_question = question
-        # Add placeholder entry to session log immediately (for real-time display)
-        if len(st.session_state.logs) <= q_index:
-            st.session_state.logs.append({
-                "question": question,
-                "user_answer": "<i>Waiting for your response...</i>"
-            })
+        # === PHASE 1: START (Initial setup) ===
+        if phase == "start":
+            st.session_state.current_question = question
+            
+            # Add placeholder entry to session log
+            if len(st.session_state.logs) <= q_index:
+                st.session_state.logs.append({
+                    "question": question,
+                    "user_answer": "<i>Waiting for your response...</i>"
+                })
+            
+            # Move to speaking phase
+            st.session_state.question_phase = "speaking"
+            st.session_state.orb_status = "preparing"
+            update_orb_color("#0088FF")
+            
+            # Speak question ONCE
+            speak_async(f"Question {q_index + 1}. {question}")
+            st.session_state.phase_start_time = time.time()
+            
+            # Wait 2 seconds then rerun to move to thinking phase
+            time.sleep(2)
+            st.rerun()
 
-        # Update orb status for UI (app.py reads orb_status to show status message)
-        st.session_state.orb_status = "thinking"
-        # Speak question asynchronously
-        speak_async(f"Question {q_index + 1}. {question}")
-
-        # Give 5 seconds thinking time
-        time.sleep(5)
-
-        # Update orb status to listening
-        st.session_state.orb_status = "listening"
-
-        # Attempt to record answer (8s max) and get volume for orb color
-        try:
-            result = record_answer(duration=8, get_volume=True)
-            # record_answer should return (text, avg_volume)
-            if isinstance(result, tuple) and len(result) == 2:
-                user_answer, avg_volume = result
+        # === PHASE 2: SPEAKING (Question being spoken) ===
+        elif phase == "speaking":
+            st.session_state.orb_status = "preparing"
+            
+            # Check if enough time has passed (3 seconds for speaking)
+            elapsed = time.time() - st.session_state.phase_start_time
+            if elapsed >= 3:
+                # Move to thinking phase
+                st.session_state.question_phase = "thinking"
+                st.session_state.thinking_countdown = 5
+                st.session_state.orb_status = "thinking"
+                update_orb_color("#FFAA00")
+                st.session_state.phase_start_time = time.time()
+                st.rerun()
             else:
-                # fallback if record_answer returns only text
-                user_answer = result if result is not None else ""
-                avg_volume = 0.0
-        except Exception as e:
-            # In case of errors with microphone or API
-            print("[Record Error]", e)
-            user_answer, avg_volume = "", 0.0
+                # Still speaking, wait a bit more
+                time.sleep(0.5)
+                st.rerun()
 
-        # Send orb color update event (app's orb listens for updateOrbColor)
-        orb_color = volume_to_color(avg_volume)
-        # Use a script injection so the orb (Three.js) can react
-        st.markdown(
-            f"<script>window.dispatchEvent(new CustomEvent('updateOrbColor', {{detail: '{orb_color}'}}));</script>",
-            unsafe_allow_html=True,
-        )
+        # === PHASE 3: THINKING (5-second countdown) ===
+        elif phase == "thinking":
+            st.session_state.orb_status = "thinking"
+            update_orb_color("#FFAA00")
+            
+            countdown = st.session_state.thinking_countdown
+            
+            if countdown > 0:
+                # Decrement countdown
+                st.session_state.thinking_countdown = countdown - 1
+                time.sleep(1)
+                st.rerun()
+            else:
+                # Countdown done, move to recording
+                st.session_state.question_phase = "recording"
+                st.session_state.orb_status = "listening"
+                update_orb_color("#00FF00")
+                st.rerun()
 
-        # Evaluate (silently) — do not display score in the right log until report stage
-        if not user_answer or not user_answer.strip():
-            score, feedback = 0, "No answer detected."
-        else:
-            score, feedback = evaluate_answer(user_answer, correct_answer)
+        # === PHASE 4: RECORDING (8 seconds) ===
+        elif phase == "recording":
+            st.session_state.orb_status = "listening"
+            update_orb_color("#00FF00")
+            
+            # Record answer
+            try:
+                result = record_answer(duration=8, get_volume=True)
+                if isinstance(result, tuple) and len(result) == 2:
+                    user_answer, avg_volume = result
+                else:
+                    user_answer = result if result is not None else ""
+                    avg_volume = 0.0
+            except Exception as e:
+                print("[Record Error]", e)
+                user_answer, avg_volume = "", 0.0
 
-        # Save entry in logs (right panel shows logs live)
-        # Update the log entry for this question
-        if len(st.session_state.logs) > q_index:
-            st.session_state.logs[q_index]["user_answer"] = user_answer or "<i>No response</i>"
-        else:
-            st.session_state.logs.append({
+            # Update orb color based on voice volume
+            orb_color = volume_to_color(avg_volume)
+            update_orb_color(orb_color)
+
+            # Evaluate answer
+            if not user_answer or not user_answer.strip():
+                score, feedback = 0, "No answer detected."
+            else:
+                score, feedback = evaluate_answer(user_answer, correct_answer)
+
+            # Update log entry
+            if len(st.session_state.logs) > q_index:
+                st.session_state.logs[q_index]["user_answer"] = user_answer or "<i>No response</i>"
+            else:
+                st.session_state.logs.append({
+                    "question": question,
+                    "user_answer": user_answer or "<i>No response</i>"
+                })
+
+            # Save full record
+            st.session_state.records.append({
                 "question": question,
-                "user_answer": user_answer or "<i>No response</i>"
+                "user_answer": user_answer,
+                "correct_answer": correct_answer,
+                "score": score,
+                "feedback": feedback
             })
 
-        # Save full record (for report & saving)
-        st.session_state.records.append({
-            "question": question,
-            "user_answer": user_answer,
-            "correct_answer": correct_answer,
-            "score": score,
-            "feedback": feedback
-        })
-
-        # Move to next question
-        st.session_state.q_index = q_index + 1
-
-        # Small UX pause
-        time.sleep(0.8)
-
-        # Rerun the app to process the next question step
-        st.rerun()
+            # Move to next question
+            st.session_state.q_index = q_index + 1
+            st.session_state.question_phase = "start"  # Reset phase for next question
+            st.session_state.thinking_countdown = 0
+            
+            # Small pause before next question
+            time.sleep(1)
+            st.rerun()
 
     else:
-        # All questions done: generate final report and switch to report stage
+        # All questions done: generate final report
         records = st.session_state.get("records", [])
-        # Use the generate_report function to save the report to disk and get structured output
         try:
             report = generate_report(
                 st.session_state.get("student_name", "Student"),
@@ -147,7 +196,6 @@ def run_viva_session_stepwise():
                 records
             )
         except Exception:
-            # If saving via generate_report fails, build a fallback report object
             avg_score = round(sum([r.get("score", 0) for r in records]) / len(records), 2) if records else 0.0
             report = {
                 "user": st.session_state.get("student_name", "Student"),
@@ -161,12 +209,11 @@ def run_viva_session_stepwise():
 
         st.session_state.report = report
         st.session_state.stage = "report"
-
-        # Clear current question and update orb status
         st.session_state.current_question = None
         st.session_state.orb_status = "idle"
-
-        # Short pause and rerun so app shows the report immediately
+        st.session_state.question_phase = "start"
+        update_orb_color("#00FFFF")
+        
         time.sleep(0.6)
         st.rerun()
 
