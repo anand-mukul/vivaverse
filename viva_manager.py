@@ -1,4 +1,4 @@
-# viva_manager.py (FIXED - proper state machine to prevent repeated TTS)
+# viva_manager.py (FIXED - dynamic timing based on question length)
 import streamlit as st
 import time
 import threading
@@ -12,14 +12,40 @@ if "records" not in st.session_state:
     st.session_state.records = []
 
 
-def speak_async(text: str):
-    """Run TTS in a separate thread to avoid blocking Streamlit UI."""
+def estimate_speech_duration(text: str) -> float:
+    """
+    Estimate how long it will take to speak the given text.
+    Average speaking rate: ~150 words per minute (2.5 words per second)
+    Returns duration in seconds.
+    """
+    if not text:
+        return 1.0
+    
+    word_count = len(text.split())
+    # Average speaking rate: 2.5 words/second at normal pace (170 rate in pyttsx3)
+    base_duration = word_count / 2.5
+    
+    # Add buffer for natural pauses and processing (30% extra)
+    duration = base_duration * 1.3
+    
+    # Minimum 2 seconds, maximum 10 seconds
+    return max(2.0, min(duration, 10.0))
+
+
+def speak_async(text: str, callback=None):
+    """
+    Run TTS in a separate thread to avoid blocking Streamlit UI.
+    Optionally call callback when speaking is complete.
+    """
     def _s():
         try:
             speak(text)
+            if callback:
+                callback()
         except Exception as e:
-            # don't crash the app if TTS fails
             print("[TTS Error]", e)
+            if callback:
+                callback()  # Still call callback even on error
     threading.Thread(target=_s, daemon=True).start()
 
 
@@ -31,7 +57,7 @@ def update_orb_color(color: str):
 def run_viva_session_stepwise():
     """
     Run exactly one viva step (one question) per Streamlit run.
-    Uses a state machine to prevent repeated TTS calls and handle countdown properly.
+    Uses dynamic timing based on question length to prevent overlapping.
     """
     # Initialize state items if missing
     if "q_index" not in st.session_state:
@@ -51,9 +77,13 @@ def run_viva_session_stepwise():
     if "thinking_countdown" not in st.session_state:
         st.session_state.thinking_countdown = 0
     if "question_phase" not in st.session_state:
-        st.session_state.question_phase = "start"  # start, speaking, thinking, recording, done
+        st.session_state.question_phase = "start"
     if "phase_start_time" not in st.session_state:
         st.session_state.phase_start_time = None
+    if "speaking_duration" not in st.session_state:
+        st.session_state.speaking_duration = 3.0
+    if "speech_complete" not in st.session_state:
+        st.session_state.speech_complete = False
 
     q_index = st.session_state.q_index
     questions = st.session_state.selected
@@ -73,6 +103,11 @@ def run_viva_session_stepwise():
         if phase == "start":
             st.session_state.current_question = question
             
+            # Calculate dynamic speaking duration based on question length
+            question_text = f"Question {q_index + 1}. {question}"
+            st.session_state.speaking_duration = estimate_speech_duration(question_text)
+            st.session_state.speech_complete = False
+            
             # Add placeholder entry to session log
             if len(st.session_state.logs) <= q_index:
                 st.session_state.logs.append({
@@ -85,21 +120,26 @@ def run_viva_session_stepwise():
             st.session_state.orb_status = "preparing"
             update_orb_color("#0D9488")
             
-            # Speak question ONCE
-            speak_async(f"Question {q_index + 1}. {question}")
+            # Speak question ONCE with completion callback
+            def on_speech_complete():
+                st.session_state.speech_complete = True
+            
+            speak_async(question_text, callback=on_speech_complete)
             st.session_state.phase_start_time = time.time()
             
-            # Wait 2 seconds then rerun to move to thinking phase
-            time.sleep(2)
+            # Initial wait
+            time.sleep(1)
             st.rerun()
 
         # === PHASE 2: SPEAKING (Question being spoken) ===
         elif phase == "speaking":
             st.session_state.orb_status = "preparing"
             
-            # Check if enough time has passed (3 seconds for speaking)
+            # Check if speech is complete OR timeout reached
             elapsed = time.time() - st.session_state.phase_start_time
-            if elapsed >= 3:
+            speaking_timeout = st.session_state.speaking_duration + 1.0  # Add 1 second buffer
+            
+            if st.session_state.speech_complete or elapsed >= speaking_timeout:
                 # Move to thinking phase
                 st.session_state.question_phase = "thinking"
                 st.session_state.thinking_countdown = 5
@@ -108,7 +148,7 @@ def run_viva_session_stepwise():
                 st.session_state.phase_start_time = time.time()
                 st.rerun()
             else:
-                # Still speaking, wait a bit more
+                # Still speaking, wait and check again
                 time.sleep(0.5)
                 st.rerun()
 
@@ -131,14 +171,24 @@ def run_viva_session_stepwise():
                 update_orb_color("#00FF00")
                 st.rerun()
 
-        # === PHASE 4: RECORDING (8 seconds) ===
+        # === PHASE 4: RECORDING (Dynamic duration based on question complexity) ===
         elif phase == "recording":
             st.session_state.orb_status = "listening"
             update_orb_color("#00FF00")
             
+            # Calculate recording duration based on question length
+            # Longer questions get more time to answer
+            word_count = len(question.split())
+            if word_count < 10:
+                record_duration = 8
+            elif word_count < 20:
+                record_duration = 10
+            else:
+                record_duration = 12
+            
             # Record answer
             try:
-                result = record_answer(duration=10, get_volume=True)
+                result = record_answer(duration=record_duration, get_volume=True)
                 if isinstance(result, tuple) and len(result) == 2:
                     user_answer, avg_volume = result
                 else:
@@ -180,9 +230,10 @@ def run_viva_session_stepwise():
             st.session_state.q_index = q_index + 1
             st.session_state.question_phase = "start"  # Reset phase for next question
             st.session_state.thinking_countdown = 0
+            st.session_state.speech_complete = False
             
             # Small pause before next question
-            time.sleep(1)
+            time.sleep(1.5)
             st.rerun()
 
     else:
@@ -214,7 +265,7 @@ def run_viva_session_stepwise():
         st.session_state.question_phase = "start"
         update_orb_color("#0D9488")
         
-        time.sleep(0.6)
+        time.sleep(0.8)
         st.rerun()
 
 
@@ -230,5 +281,5 @@ def volume_to_color(volume: float) -> str:
     if v < 0.03:
         return "#0011FF"  # Blue
     if v < 0.06:
-        return "#0D9488"  # Cyan
+        return "#0D9488"  # Teal/Cyan
     return "#FF33FF"     # Pink

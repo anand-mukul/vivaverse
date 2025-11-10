@@ -8,7 +8,7 @@ from viva_manager import run_viva_session_stepwise
 import streamlit.components.v1 as components
 
 # ---------------- PAGE CONFIG ----------------
-st.set_page_config(page_title="EchoViva 2.0 | AI Viva Assistant", page_icon="🎙️", layout="wide")
+st.set_page_config(page_title="EchoViva | AI Viva Assistant", page_icon="🎙️", layout="wide")
 
 # ---------------- CUSTOM CSS (LIGHT MODE) ----------------
 st.markdown(
@@ -113,6 +113,7 @@ with col_left:
 
     # Subjects mapping to JSON files
     subjects = {
+        "Python Programming": "python.json",
         "Operating System": "os.json",
         "Database Management": "dbms.json",
         "Computer Networks": "cn.json",
